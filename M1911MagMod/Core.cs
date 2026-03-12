@@ -6,7 +6,7 @@ using Il2CppScheduleOne.Equipping;
 using Il2CppScheduleOne.ItemFramework;
 using ModManagerPhoneApp;
 
-[assembly: MelonInfo(typeof(M1911MagMod.Core), "M1911 Magazine Mod", "1.0.0", "LeeT")]
+[assembly: MelonInfo(typeof(M1911MagMod.Core), "M1911 Magazine Mod", "1.1.0", "LeeT")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace M1911MagMod
@@ -19,6 +19,7 @@ namespace M1911MagMod
         public static MelonPreferences_Entry<int> MagazineSizeEntry;
         public static MelonPreferences_Entry<bool> DebugEntry;
 
+        private Equippable_RangedWeapon _cachedWeapon;
         private bool _wasReloading;
         private int _preReloadAmmo;
         private int _preReloadMagValue;
@@ -43,6 +44,7 @@ namespace M1911MagMod
         public override void OnSceneWasLoaded(int buildIndex, string sceneName)
         {
             base.OnSceneWasLoaded(buildIndex, sceneName);
+            _cachedWeapon = null;
             MelonCoroutines.Start(DelayedApply());
         }
 
@@ -54,62 +56,62 @@ namespace M1911MagMod
 
         public override void OnUpdate()
         {
-            var weapons = Object.FindObjectsOfType<Equippable_RangedWeapon>();
-            if (weapons == null) return;
-
-            int magSize = MagazineSizeEntry.Value;
-
-            foreach (var weapon in weapons)
+            // Throttle weapon search to every 60 frames (~1/sec) like PackRat does
+            if (_cachedWeapon == null || _cachedWeapon.WasCollected)
             {
-                if (weapon == null) continue;
-                if (weapon.GetIl2CppType().Name != "Equippable_RangedWeapon") continue;
+                _cachedWeapon = null;
+                _wasReloading = false;
+                _correctionPending = false;
+                if (Time.frameCount % 60 != 0) return;
+                var obj = GameObject.Find("M1911_Equippable(Clone)");
+                if (obj == null) return;
+                _cachedWeapon = obj.GetComponent<Equippable_RangedWeapon>();
+                if (_cachedWeapon == null) return;
+            }
 
-                bool isReloading = weapon.IsReloading;
+            var weapon = _cachedWeapon;
+            int magSize = MagazineSizeEntry.Value;
+            bool isReloading = weapon.IsReloading;
 
-                if (isReloading && !_wasReloading)
+            if (isReloading && !_wasReloading)
+            {
+                _preReloadAmmo = weapon.Ammo;
+
+                _preReloadMagValue = 0;
+                if (weapon.GetMagazine(out var mag))
                 {
-                    // Reload just started — snapshot current state
-                    _preReloadAmmo = weapon.Ammo;
+                    var intMag = mag?.TryCast<IntegerItemInstance>();
+                    if (intMag != null)
+                        _preReloadMagValue = intMag.Value;
+                }
 
-                    // Find the magazine that will be consumed
-                    _preReloadMagValue = 0;
-                    if (weapon.GetMagazine(out var mag))
-                    {
-                        var intMag = mag?.TryCast<IntegerItemInstance>();
-                        if (intMag != null)
-                            _preReloadMagValue = intMag.Value;
-                    }
+                _correctionPending = true;
 
-                    _correctionPending = true;
+                if (DebugEntry.Value)
+                    LoggerInstance.Msg($"[Reload Start] Gun={_preReloadAmmo}, Mag={_preReloadMagValue}");
+            }
+
+            if (_correctionPending)
+            {
+                var weaponItem = weapon.weaponItem;
+                if (weaponItem != null && weaponItem.Value != _preReloadAmmo)
+                {
+                    int needed = magSize - _preReloadAmmo;
+                    int toTake = System.Math.Min(needed, _preReloadMagValue);
+                    int correctAmmo = _preReloadAmmo + toTake;
 
                     if (DebugEntry.Value)
-                        LoggerInstance.Msg($"[Reload Start] Gun={_preReloadAmmo}, Mag={_preReloadMagValue}");
-                }
+                        LoggerInstance.Msg($"[Reload End] Game set ammo to {weaponItem.Value}, correcting to {correctAmmo}");
 
-                // Correct as soon as the ammo value changes during/after reload
-                if (_correctionPending)
-                {
-                    var weaponItem = weapon.weaponItem;
-                    if (weaponItem != null && weaponItem.Value != _preReloadAmmo)
-                    {
-                        int needed = magSize - _preReloadAmmo;
-                        int toTake = System.Math.Min(needed, _preReloadMagValue);
-                        int correctAmmo = _preReloadAmmo + toTake;
-
-                        if (DebugEntry.Value)
-                            LoggerInstance.Msg($"[Reload End] Game set ammo to {weaponItem.Value}, correcting to {correctAmmo}");
-
-                        weaponItem.SetValue(correctAmmo);
-                        _correctionPending = false;
-                    }
-                }
-
-                if (!isReloading && _wasReloading)
+                    weaponItem.SetValue(correctAmmo);
                     _correctionPending = false;
-
-                _wasReloading = isReloading;
-                break; // Only track the first M1911
+                }
             }
+
+            if (!isReloading && _wasReloading)
+                _correctionPending = false;
+
+            _wasReloading = isReloading;
         }
 
         private void ApplyToPrefab()

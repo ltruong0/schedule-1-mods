@@ -88,10 +88,17 @@ Subscribe to `ModSettingsEvents.OnPhonePreferencesSaved` to react when user save
 
 ## Modding Patterns
 
+### Performance (IMPORTANT)
+- **NEVER call `Object.FindObjectsOfType<T>()` or `GameObject.Find()` every frame in `OnUpdate()`** — even `GameObject.Find` every frame tanks FPS and causes stuttering.
+- Cache object references and reuse them. Only re-search when the cache is null/collected.
+- **Throttle searches** with `Time.frameCount % 60` (like PackRat does) so lookups only run ~1/sec. On non-search frames, just `return` immediately for near-zero cost.
+- When the weapon IS cached, reading properties like `IsReloading` or `weaponItem.Value` is cheap — no throttling needed for those.
+- Reference: AmmoCostCapacity uses no `OnUpdate` at all (patches prefabs once at scene load). PackRat throttles with `frameCount % 60` and caches previous values to avoid redundant work.
+
 ### IL2CPP considerations
 - Harmony patches on property getters/setters do NOT work reliably with IL2CPP
 - Prefer direct field/property modification via `OnUpdate()` or lifecycle callbacks
-- Use `Object.FindObjectsOfType<T>()` to find active game objects
+- Use `Object.FindObjectsOfType<T>()` to find active game objects (but **cache the result**, see Performance above)
 - Use `instance.GetIl2CppType().Name` to check IL2CPP runtime type
 - Use `.TryCast<T>()` or `.Cast<T>()` for IL2CPP type casting
 
