@@ -1,0 +1,18 @@
+# Reference assemblies
+Il2CppAssemblies/
+net6/
+*.dll
+!M1911MagMod/bin/Release/net6.0/M1911MagMod.dll
+
+# Build artifacts
+M1911MagMod/bin/
+M1911MagMod/obj/
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+
+# macOS
+.DS_Store
