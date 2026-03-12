@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 6
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 6.0.x
+
+      - name: Download reference assemblies
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download assemblies -R ${{ github.repository }} -D /tmp/assemblies
+          tar xzf /tmp/assemblies/assemblies.tar.gz -C .
+
+      - name: Build all mods
+        run: |
+          for csproj in *//*.csproj; do
+            mod=$(basename "${csproj%.csproj}")
+            echo "Building $mod..."
+            dotnet build "$csproj" -c Release
+          done
