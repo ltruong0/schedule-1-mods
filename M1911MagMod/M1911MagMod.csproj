@@ -41,7 +41,7 @@
     </Reference>
     <!-- Mod Manager (optional soft dependency) -->
     <Reference Include="ModManager&amp;PhoneApp">
-      <HintPath>..\ModManager&amp;PhoneApp.dll</HintPath>
+      <HintPath>..\references\ModManager&amp;PhoneApp.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
