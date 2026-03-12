@@ -6,5 +6,10 @@ if [ ! -d "$DEST" ]; then
     exit 1
 fi
 
-cp M1911MagMod/bin/Release/net6.0/M1911MagMod.dll "$DEST/"
-echo "Deployed M1911MagMod.dll to $DEST"
+for mod in M1911MagMod PackRatFPSFix; do
+    dll="$mod/bin/Release/net6.0/$mod.dll"
+    if [ -f "$dll" ]; then
+        cp "$dll" "$DEST/"
+        echo "Copied $mod.dll to $DEST"
+    fi
+done

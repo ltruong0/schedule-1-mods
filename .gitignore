@@ -7,6 +7,8 @@ net6/
 # Build artifacts
 M1911MagMod/bin/
 M1911MagMod/obj/
+PackRatFPSFix/bin/
+PackRatFPSFix/obj/
 
 # IDE
 .vs/
